@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wendigo: The Last Hunt</title>
+<style>
+:root{color-scheme:dark;--ink:#e8eadf;--muted:#aeb9a9;--panel:#101b19;--line:#35463b;--moss:#8da879;--gold:#d9bd79}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#24372e 0,#101915 55%,#090f0d 100%);color:var(--ink);font:15px/1.45 system-ui,Segoe UI,Arial,sans-serif;min-height:100vh}
+header{max-width:1180px;margin:auto;padding:22px 20px 12px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+h1{font-size:clamp(25px,4vw,39px);letter-spacing:.08em;margin:0;color:#e9e4cf;text-transform:uppercase}
+.sub{color:var(--muted);margin:3px 0 0}.tag{border:1px solid #52634d;border-radius:999px;padding:6px 11px;color:#c8d4bb;font-size:12px;letter-spacing:.08em}
+main{max-width:1180px;margin:auto;padding:10px 20px 30px;display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px}
+.gamebox,.panel{background:rgba(11,19,16,.88);border:1px solid var(--line);border-radius:15px;box-shadow:0 18px 55px #0005}
+.gamebox{padding:10px;min-width:0}.canvaswrap{position:relative;overflow:hidden;border-radius:10px;background:#17271d}
+canvas{display:block;width:100%;height:auto;aspect-ratio:16/10;touch-action:none}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#07100dd9;padding:20px;text-align:center}
+.overlay.hidden{display:none}.dialog{max-width:510px;background:#14231d;border:1px solid #52644c;border-radius:14px;padding:23px;box-shadow:0 12px 50px #0009}
+.dialog h2{font-size:25px;margin:0 0 8px;color:#f0e9d2}.dialog p{color:#c2cbbb;margin:8px 0 16px}
+button{background:#b4c394;color:#142018;border:0;border-radius:8px;padding:10px 15px;font-weight:800;cursor:pointer;font-size:14px}
+button:hover{background:#d1ddb2}button.secondary{background:#293b31;color:#e1e9d8;border:1px solid #51634f}
+aside{display:flex;flex-direction:column;gap:12px}.panel{padding:15px}.panel h3{margin:0 0 10px;font-size:13px;letter-spacing:.13em;text-transform:uppercase;color:var(--gold)}
+.stat{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid #26362d}.stat:last-child{border:0}.stat span:first-child{color:var(--muted)}
+.value{font-weight:800;color:#edf0df;text-align:right}.meter{height:8px;background:#29362d;border-radius:99px;overflow:hidden;margin-top:7px}.meter>i{display:block;height:100%;width:0;background:#b5ca8e;transition:width .2s}
+.help{font-size:13px;color:#c2cbbb}.help b{color:#f0e9d2}.help p{margin:7px 0}.key{display:inline-block;border:1px solid #60715b;border-bottom-width:3px;border-radius:5px;padding:1px 6px;color:#e8edda;font-size:11px}
+.footer{max-width:1180px;margin:-16px auto 30px;padding:0 20px;color:#879688;font-size:12px}
+@media(max-width:850px){main{grid-template-columns:1fr}aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.panel:first-child{grid-column:1/-1}}
+@media(max-width:520px){header{padding:16px 12px}main{padding:8px 10px 22px}aside{grid-template-columns:1fr}.panel:first-child{grid-column:auto}.gamebox{padding:5px}}
+</style>
+</head>
+<body>
+<header><div><h1>Wendigo: The Last Hunt</h1><p class="sub">A two-player forest survival game · local multiplayer</p></div><span class="tag">NIGHTFALL PROTOCOL</span></header>
+<main>
+<section class="gamebox">
+ <div class="canvaswrap">
+  <canvas id="game" width="960" height="600" aria-label="Top-down forest game"></canvas>
+  <div class="overlay" id="start">
+   <div class="dialog"><h2>The forest is watching.</h2>
+    <p>One player is the Hunter. One is the Deer. Nine wandering deer create decoys. The Hunter has three energy shots. If all miss, or the Deer eats five mushrooms, the Deer transforms. As the Wendigo, hunt down the Hunter to win.</p>
+    <p><b>Hunter:</b> WASD to move · SPACE to fire<br><b>Deer:</b> Arrow keys to move · E to eat a nearby mushroom · F to attack as Wendigo</p>
+    <button id="startBtn">START GAME</button>
+   </div>
+  </div>
+  <div class="overlay hidden" id="end"><div class="dialog"><h2 id="endTitle">Round over</h2><p id="endText"></p><button id="againBtn">PLAY AGAIN</button></div></div>
+ </div>
+</section>
+<aside>
+ <div class="panel"><h3>Round status</h3>
+  <div class="stat"><span>Hunter energy shots</span><strong class="value" id="shots">3 / 3</strong></div>
+  <div class="stat"><span>Mushrooms</span><strong class="value" id="mushrooms">0 / 5</strong></div>
+  <div class="meter"><i id="mushbar"></i></div>
+  <div class="stat"><span>Deer state</span><strong class="value" id="state">Unchanged</strong></div>
+  <div class="stat"><span>Forest population</span><strong class="value">10 deer</strong></div>
+  <div class="stat"><span>Round time</span><strong class="value" id="timer">00:00</strong></div>
+ </div>
+ <div class="panel"><h3>Controls</h3><div class="help">
+  <p><b>Hunter (Player 1)</b><br><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> move<br><span class="key">SPACE</span> fire energy shot</p>
+  <p><b>Deer (Player 2)</b><br><span class="key">↑</span><span class="key">←</span><span class="key">↓</span><span class="key">→</span> move<br><span class="key">E</span> eat nearby mushroom</p>
+  <p><b>Wendigo</b><br><span class="key">F</span> lunge at the Hunter when close</p>
+ </div></div>
+ <div class="panel"><h3>How to win</h3><div class="help">
+  <p><b>Hunter:</b> Hit the player-controlled Deer with one of your three energy shots before it transforms.</p>
+  <p><b>Deer:</b> Transform, then get close to the Hunter and press F to land a lunge. The Deer wins only by taking down the Hunter.</p>
+  <p>AI deer are decoys. Only the player Deer counts as the target.</p>
+ </div></div>
+ <div class="panel"><h3>Tip</h3><div class="help">Mushrooms glow faintly. Search the clearings and tree gaps. The Hunter can move while aiming; shots travel in the direction of the last movement.</div></div>
+</aside>
+</main>
+<p class="footer">Single-file HTML game. Works locally and on GitHub Pages. Best played on a computer with two people sharing one keyboard.</p>
+<script>
+(() => {
+"use strict";
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
+const W=canvas.width,H=canvas.height,keys=new Set();
+const $=id=>document.getElementById(id);
+let running=false,ended=false,startedAt=0,last=0,shots=3,mushCount=0,transformed=false,shotCooldown=0,attackCooldown=0,flash=0;
+let hunter,deer,bots=[],mushrooms=[],projectiles=[],trees=[],particles=[],lastHunterDir={x:1,y:0};
+const rand=(a,b)=>Math.random()*(b-a)+a,dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function clearRound(){
+ shots=3;mushCount=0;transformed=false;shotCooldown=0;attackCooldown=0;flash=0;projectiles=[];particles=[];
+ hunter={x:W*.22,y:H*.5,r:13,speed:190,dx:1,dy:0};
+ deer={x:W*.76,y:H*.5,r:12,speed:205,dx:-1,dy:0};
+ bots=Array.from({length:9},()=>({x:rand(90,W-90),y:rand(80,H-80),r:10,speed:rand(45,85),angle:rand(0,Math.PI*2),turn:rand(.5,2)}));
+ mushrooms=[];for(let i=0;i<5;i++)mushrooms.push({x:rand(65,W-65),y:rand(65,H-65),r:9,active:true});
+ trees=[];for(let i=0;i<85;i++){let x=rand(20,W-20),y=rand(20,H-20);if(Math.hypot(x-hunter.x,y-hunter.y)>55&&Math.hypot(x-deer.x,y-deer.y)>55)trees.push({x,y,r:rand(13,23)});}
+ $("shots").textContent="3 / 3";$("mushrooms").textContent="0 / 5";$("mushbar").style.width="0%";$("state").textContent="Unchanged";
+}
+function start(){clearRound();running=true;ended=false;startedAt=performance.now();last=startedAt;$("start").classList.add("hidden");$("end").classList.add("hidden");requestAnimationFrame(loop);}
+function finish(who,title,msg){ended=true;running=false;$("endTitle").textContent=title;$("endText").textContent=msg;$("end").classList.remove("hidden");}
+function move(ent,dx,dy,speed,dt){let len=Math.hypot(dx,dy);if(len){dx/=len;dy/=len;ent.dx=dx;ent.dy=dy;}ent.x=clamp(ent.x+dx*speed*dt,24,W-24);ent.y=clamp(ent.y+dy*speed*dt,24,H-24);}
+function burst(x,y,color,n=12){for(let i=0;i<n;i++){let a=rand(0,Math.PI*2),s=rand(35,145);particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rand(.25,.65),max:.65,color});}}
+function fire(){if(!running||transformed||shotCooldown>0||shots<=0)return;shots--;shotCooldown=.55;$("shots").textContent=shots+" / 3";let d=lastHunterDir;projectiles.push({x:hunter.x+d.x*19,y:hunter.y+d.y*19,vx:d.x*390,vy:d.y*390,life:1.8,r:6});burst(hunter.x+d.x*17,hunter.y+d.y*17,"#f6d98b",5);if(shots===0){setTimeout(()=>{if(running&&!transformed){transform("The Hunter used all three shots without hitting the Deer.");}},500);}}
+function transform(reason){if(!running||transformed)return;transformed=true;deer.r=19;deer.speed=255;flash=1.1;$("state").textContent="WENDIGO";burst(deer.x,deer.y,"#c6e5a1",45);$("endText").textContent=reason;}
+function attack(){if(!running||!transformed||attackCooldown>0)return;attackCooldown=1.1;if(dist(deer,hunter)<62){burst(hunter.x,hunter.y,"#d7e6ad",25);finish("deer","THE WENDIGO WINS","The Hunter has been caught. The forest belongs to the Wendigo.");}else{burst(deer.x,deer.y,"#a8c98a",9);}}
+function update(dt,now){
+ shotCooldown=Math.max(0,shotCooldown-dt);attackCooldown=Math.max(0,attackCooldown-dt);flash=Math.max(0,flash-dt);
+ let hx=(keys.has("d")?1:0)-(keys.has("a")?1:0),hy=(keys.has("s")?1:0)-(keys.has("w")?1:0);
+ if(hx||hy){let l=Math.hypot(hx,hy);lastHunterDir={x:hx/l,y:hy/l};}move(hunter,hx,hy,hunter.speed,dt);
+ let dx=(keys.has("ArrowRight")?1:0)-(keys.has("ArrowLeft")?1:0),dy=(keys.has("ArrowDown")?1:0)-(keys.has("ArrowUp")?1:0);
+ move(deer,dx,dy,deer.speed,dt);
+ // AI deer wander and flee from the Hunter or transformed Wendigo.
+ for(const b of bots){b.turn-=dt;let target=transformed?deer:hunter;let d=dist(b,target);if(d<125){let a=Math.atan2(b.y-target.y,b.x-target.x);b.angle=a;}else if(b.turn<=0){b.angle+=rand(-1.5,1.5);b.turn=rand(.5,2.2);}b.x=clamp(b.x+Math.cos(b.angle)*b.speed*dt,25,W-25);b.y=clamp(b.y+Math.sin(b.angle)*b.speed*dt,25,H-25);}
+ for(const p of projectiles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;if(Math.hypot(p.x-deer.x,p.y-deer.y)<p.r+deer.r&&!transformed){p.life=0;burst(deer.x,deer.y,"#f1d38b",20);finish("hunter","THE HUNTER WINS","The player Deer was hit before transforming. The hunt is over.");} }
+ projectiles=projectiles.filter(p=>p.life>0&&p.x>0&&p.x<W&&p.y>0&&p.y<H);
+ for(const m of mushrooms){if(m.active&&dist(m,deer)<23&&keys.has("e")){m.active=false;mushCount++;$("mushrooms").textContent=mushCount+" / 5";$("mushbar").style.width=(mushCount*20)+"%";burst(m.x,m.y,"#b6d99a",14);if(mushCount>=5)transform("The Deer found and ate all five mushrooms.");}}
+ for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;p.vx*=.97;p.vy*=.97;}particles=particles.filter(p=>p.life>0);
+ if(transformed&&dist(deer,hunter)<29){/* pressing F is required to finish the round */}
+ $("timer").textContent=fmt((now-startedAt)/1000);
+}
+function fmt(s){let m=Math.floor(s/60),sec=Math.floor(s%60);return String(m).padStart(2,"0")+":"+String(sec).padStart(2,"0");}
+function draw(){
+ ctx.clearRect(0,0,W,H);
+ // forest floor
+ ctx.fillStyle="#203326";ctx.fillRect(0,0,W,H);
+ ctx.globalAlpha=.12;ctx.strokeStyle="#b1c59b";ctx.lineWidth=1;for(let x=0;x<W;x+=48){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}for(let y=0;y<H;y+=48){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}ctx.globalAlpha=1;
+ // winding footpaths and clearings
+ ctx.strokeStyle="#6b6848";ctx.lineWidth=34;ctx.globalAlpha=.22;ctx.beginPath();ctx.moveTo(40,490);ctx.quadraticCurveTo(260,350,420,430);ctx.quadraticCurveTo(650,530,910,270);ctx.stroke();ctx.globalAlpha=1;
+ for(const m of mushrooms)if(m.active){ctx.save();ctx.shadowColor="#c6e89d";ctx.shadowBlur=18;ctx.fillStyle="#b7d88c";ctx.beginPath();ctx.arc(m.x,m.y,7,Math.PI,0);ctx.fill();ctx.fillStyle="#e4e8c8";ctx.fillRect(m.x-2,m.y,4,8);ctx.restore();}
+ // trees
+ for(const t of trees){ctx.fillStyle="#101c15";ctx.beginPath();ctx.arc(t.x+3,t.y+5,t.r+3,0,Math.PI*2);ctx.fill();ctx.fillStyle="#35533a";ctx.beginPath();ctx.arc(t.x,t.y,t.r,0,Math.PI*2);ctx.fill();ctx.fillStyle="#4d7049";ctx.beginPath();ctx.arc(t.x-5,t.y-6,t.r*.48,0,Math.PI*2);ctx.fill();}
+ // bots
+ for(const b of bots)drawDeer(b.x,b.y,b.r,false,false);
+ // projectile pulses
+ for(const p of projectiles){ctx.save();ctx.shadowColor="#ffe29b";ctx.shadowBlur=18;ctx.fillStyle="#ffe7a7";ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.restore();}
+ drawHunter();drawDeer(deer.x,deer.y,deer.r,true,transformed);
+ for(const p of particles){ctx.globalAlpha=clamp(p.life/p.max,0,1);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;
+ // vignette and state warning
+ let g=ctx.createRadialGradient(W/2,H/2,100,W/2,H/2,600);g.addColorStop(0,"#0000");g.addColorStop(1,"#03090799");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ if(transformed){ctx.fillStyle="#d8e7bb";ctx.font="bold 19px system-ui";ctx.textAlign="center";ctx.fillText("WENDIGO AWAKENED — PRESS F NEAR THE HUNTER",W/2,32);}
+}
+function drawDeer(x,y,r,player,isW){ctx.save();ctx.translate(x,y);ctx.fillStyle=isW?"#b7c9a0":"#9b805b";ctx.beginPath();ctx.ellipse(0,0,r*1.25,r*.72,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=isW?"#d9e7c2":"#b49a70";ctx.beginPath();ctx.arc(r*.85,-r*.35,r*.48,0,Math.PI*2);ctx.fill();ctx.strokeStyle=isW?"#d9e7c2":"#d2c29b";ctx.lineWidth=2;for(let i of [-1,1]){ctx.beginPath();ctx.moveTo(r*.95,-r*.65);ctx.lineTo(r*1.2,-r*1.3);ctx.lineTo(r*1.5,-r*1.42);ctx.moveTo(r*1.2,-r*1.3);ctx.lineTo(r*1.1,-r*1.58);ctx.stroke();}ctx.strokeStyle="#34291d";ctx.lineWidth=3;for(let i of [-.55,.55]){ctx.beginPath();ctx.moveTo(i*r,r*.45);ctx.lineTo(i*r,r*1.05);ctx.stroke();}if(isW){ctx.fillStyle="#d9f6ad";ctx.shadowColor="#d9f6ad";ctx.shadowBlur=12;ctx.beginPath();ctx.arc(r*1.05,-r*.4,2.7,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;}if(player){ctx.strokeStyle=isW?"#d9f6ad":"#e9d89e";ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,r*1.75,0,Math.PI*2);ctx.stroke();}ctx.restore();}
+function drawHunter(){ctx.save();ctx.translate(hunter.x,hunter.y);ctx.fillStyle="#b8b9aa";ctx.beginPath();ctx.arc(0,0,hunter.r,0,Math.PI*2);ctx.fill();ctx.fillStyle="#303b35";ctx.fillRect(-5,-hunter.r-8,10,9);ctx.strokeStyle="#e5d9b5";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(lastHunterDir.x*24,lastHunterDir.y*24);ctx.stroke();ctx.strokeStyle="#e9e2ca";ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,18,0,Math.PI*2);ctx.stroke();ctx.restore();}
+function loop(now){if(!running)return;let dt=Math.min((now-last)/1000,.033);last=now;update(dt,now);draw();if(running)requestAnimationFrame(loop);}
+window.addEventListener("keydown",e=>{if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key))e.preventDefault();let k=e.key===" "?"space":e.key.length===1?e.key.toLowerCase():e.key;keys.add(k);if(k==="space")fire();if(k==="f")attack();});
+window.addEventListener("keyup",e=>{let k=e.key===" "?"space":e.key.length===1?e.key.toLowerCase():e.key;keys.delete(k);});
+$("startBtn").addEventListener("click",start);$("againBtn").addEventListener("click",start);
+clearRound();draw();
+})();
+</script>
+</body>
+</html>
